@@ -86,21 +86,22 @@ def start_logging():
 #   Handles arguments using argparse, returns the parsed arguments.
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Program to help secure networks from insecure Raspberry Pis')
-    parser.add_argument('-a', '--address',  dest='address', help='IPv4 address of RaspberryPi host to target')
-    parser.add_argument('-r', '--range', dest='range', help='CIDR block to scan for Raspberry Pis')
+    parser.add_argument(dest='ip', help='IPv4 address of RaspberryPi host to target')
+    # parser.add_argument('-a', '--address',  dest='address', help='IPv4 address of RaspberryPi host to target')
+    # parser.add_argument('-r', '--range', dest='range', help='CIDR block to scan for Raspberry Pis')
     parser.add_argument('-p', '--private', dest='all', help='Scan all private network ranges as specified by RFC 1918')
     parser.add_argument('-P', '--port', dest='port', help='Port number to SSH into')
 
     parsed = parser.parse_args()
-    if parsed.address:
-        logger.info('Destination address : %s' % parsed.address)
-    elif parsed.range:
-        logger.info('Destination address : %s' % parsed.address)
-    elif parsed.range:
-        logger.info('Destination address : %s' % parsed.address)
-    else:
-        logger.error('Unknown input, stopping execution')
-        exit(1)
+    # if parsed.address:
+    #     logger.info('Destination address : %s' % parsed.ip)
+    # elif parsed.range:
+    #     logger.info('Destination address : %s' % parsed.address)
+    # elif parsed.range:
+    #     logger.info('Destination address : %s' % parsed.address)
+    # else:
+    #     logger.error('Unknown input, stopping execution')
+    #     exit(1)
 
     return parsed
 
@@ -138,12 +139,14 @@ def check_ssh_up(address, port):
         for keyword in SSH_KEYWORDS:
             if keyword in str(response).lower():
                 logging.info('SSH service likely running on the target machine')
-                return sck
+                return True
 
         logging.info('Could not find default Raspbian SSH service running on the target machine')
         logging.info('Exiting program...')
 
         exit(1)
+    else:
+        logging.info('Unable to SSH into host %s on port %d' % (address, port))
 
 
 #   ssh_into_host
@@ -155,7 +158,8 @@ def ssh_into_host(address, **kwargs):
     else:
         port = DEFAULT_SSH_PORT
 
-        check_ssh_up(address, port)
+        if not check_ssh_up(address, port):
+            return None
 
     try:
         ssh_client = paramiko.SSHClient()
@@ -191,24 +195,22 @@ def corrupt_startup(ssh_client):
 def main():
     start_logging()
     args = parse_arguments()
-    if args.address:
-        ip_list_to_check = args.address.split(',')
-    elif args.range:
-        ip_list_to_check = netaddr.IPNetwork(args.range)
+    ip_list_to_check = netaddr.IPNetwork(args.ip)
 
     print_intro()
 
     for host in ip_list_to_check:
         # TODO ssh into specific port
-        if not check_host_up(host):
-            logging.info('Exiting program...')
-            exit(1)
+        host_str = str(host)
+        if not check_host_up(host_str):
+            # Check next host
+            continue
 
-        client = ssh_into_host(host)
-        corrupt_startup(client)
-        # client.close()
+        client = ssh_into_host(host_str)
+        if client:
+            corrupt_startup(client)
 
-    logging.info('Execution done')
+    logging.info('Execution done.')
 
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
