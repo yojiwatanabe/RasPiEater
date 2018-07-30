@@ -86,11 +86,10 @@ def start_logging():
 #   Handles arguments using argparse, returns the parsed arguments.
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Program to help secure networks from insecure Raspberry Pis')
-    parser.add_argument(dest='ip', help='IPv4 address of RaspberryPi host to target')
-    # parser.add_argument('-a', '--address',  dest='address', help='IPv4 address of RaspberryPi host to target')
-    # parser.add_argument('-r', '--range', dest='range', help='CIDR block to scan for Raspberry Pis')
-    parser.add_argument('-p', '--private', dest='all', help='Scan all private network ranges as specified by RFC 1918')
-    parser.add_argument('-P', '--port', dest='port', help='Port number to SSH into')
+    address_parser = parser.add_mutually_exclusive_group()
+    address_parser.add_argument('-i', dest='ip', help='IPv4 address of RaspberryPi host to target')
+    address_parser.add_argument('-p', '--private', action='store_true', dest='all', help='Scan all private network ranges as '
+                                                                               'specified by RFC 1918')
 
     parsed = parser.parse_args()
     # if parsed.address:
@@ -112,7 +111,7 @@ def parse_arguments():
 def check_host_up(address):
     logging.info('Checking if host is up: sending ICMP packet to host')
     icmp = IP(dst=address)/ICMP()
-    reply = sr1(icmp, timeout=5, verbose=0)
+    reply = sr1(icmp, timeout=3, verbose=0)
     logging.info(icmp.summary())
 
     if reply is None:
@@ -195,12 +194,16 @@ def corrupt_startup(ssh_client):
 def main():
     start_logging()
     args = parse_arguments()
-    ip_list_to_check = netaddr.IPNetwork(args.ip)
+    if args.all:
+        ip_list_to_check = []
+        for cidr in LOCAL_NET_CIDR:
+            ip_list_to_check = ip_list_to_check + [netaddr.IPNetwork(cidr)]
+    else:
+        ip_list_to_check = netaddr.IPNetwork(args.ip)
 
     print_intro()
 
     for host in ip_list_to_check:
-        # TODO ssh into specific port
         host_str = str(host)
         if not check_host_up(host_str):
             # Check next host
