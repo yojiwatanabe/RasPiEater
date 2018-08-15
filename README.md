@@ -1,4 +1,4 @@
-![alt-text](https://s3.us-east-2.amazonaws.com/www.yojiwatanabe.com/github/images/raspieater_loadscreen.jpeg)
+![alt-text](https://s3.amazonaws.com/yojiwatanabe.com/raspieater/raspi_screenshot.png)
 
 # RasPiEater
 Tired of insecure Raspberry Pi machines putting your network at risk? Me too! Let's eat some Pis! With the ever-increasing number of internet-connected devices, malicious actors have a wider attack surface for penetrating your network. Insecure Raspberry Pis are an easy way for malicious actors to gain access to a machine on your network.
