@@ -7,7 +7,7 @@ RasPiEater can beat malicious actors to devices you are aware of (via firewall, 
 ### Note:
 - Requires some Linux insides knowledge OR a fresh OS to reverse the bite taken by RasPiEater
 - Data may be lost on the target RasPi
-- Only to be used on machines with explicit consent
+- Only to be used on machines with explicit prior consent
 
 ----------------------------------
 Anti-Copyright, 2018
